@@ -1,14 +1,19 @@
 package io.dagger.modules.ci;
 
 import io.dagger.client.CacheVolume;
+import io.dagger.client.Client.ContainerArguments;
 import io.dagger.client.Container;
+import io.dagger.client.Container.AsServiceArguments;
+import io.dagger.client.Container.PublishArguments;
 import io.dagger.client.DaggerQueryException;
 import io.dagger.client.Directory;
 import io.dagger.client.File;
+import io.dagger.client.Platform;
 import io.dagger.client.Service;
 import io.dagger.module.AbstractModule;
 import io.dagger.module.annotation.Default;
 import io.dagger.module.annotation.Function;
+import io.dagger.module.annotation.Nullable;
 import io.dagger.module.annotation.Object;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -21,14 +26,27 @@ public class CI extends AbstractModule {
   @Function
   public String publish(Directory source, @Default("ttl.sh/echo-server:1h") String imageName)
       throws ExecutionException, DaggerQueryException, InterruptedException {
-    return build(source, false).publish(imageName);
+    List<Container> containers = packAll(source);
+    return dag.container().publish(imageName,
+        new PublishArguments().withPlatformVariants(containers));
+  }
+
+  private List<Container> packAll(Directory source) throws IllegalArgumentException {
+    return List.of("amd64", "arm64").stream()
+        .map(platform -> {
+          try {
+            return pack(source, platform);
+          } catch (ExecutionException | DaggerQueryException | InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        }).toList();
   }
 
   /** Run the application locally */
   @Function
   public Service dev(Directory source)
       throws ExecutionException, DaggerQueryException, InterruptedException {
-    return pack(source).asService();
+    return pack(source, null).asService(new AsServiceArguments());
   }
 
   /** Build the application and optionally run the tests */
@@ -40,18 +58,25 @@ public class CI extends AbstractModule {
 
   /** Package the application into a container */
   @Function
-  public Container pack(Directory source) {
+  public Container pack(Directory source, @Nullable String platform)
+      throws ExecutionException, DaggerQueryException, InterruptedException {
     File jar = build(source, true)
+        .withExec(List.of("mvn", "package", "-DskipTests"))
         .directory("./target")
         .file("echo-server-1.0-SNAPSHOT.jar");
-    return dag.container().from("eclipse-temurin:17")
+    Platform pf = dag.defaultPlatform();
+    if (platform != null) {
+      pf = Platform.from(platform);
+    }
+    return dag.container(new ContainerArguments().withPlatform(pf))
+        .from("eclipse-temurin:17")
         .withFile("/usr/local/echo-server/app.jar", jar)
         .withExposedPort(8080)
         .withEntrypoint(List.of("java", "-jar", "/usr/local/echo-server/app.jar"));
   }
 
   /** Return the result of running unit tests */
-   @Function
+  @Function
   public String test(Directory source)
       throws ExecutionException, DaggerQueryException, InterruptedException {
     return buildEnv(source).withExec(List.of("mvn", "clean", "test")).stdout();
