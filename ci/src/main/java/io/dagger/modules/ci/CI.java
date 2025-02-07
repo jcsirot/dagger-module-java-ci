@@ -28,15 +28,20 @@ public class CI extends AbstractModule {
   @Function
   public Service dev(Directory source)
       throws ExecutionException, DaggerQueryException, InterruptedException {
-    return build(source, true).asService();
+    return pack(source).asService();
   }
 
-  /** Build and package the application into a container */
+  /** Build the application and optionally run the tests */
   @Function
-  public Container build(Directory source, @Default("false") boolean skipTests)
-      throws ExecutionException, DaggerQueryException, InterruptedException {
-    File jar = buildEnv(source)
-        .withExec(List.of("mvn", "clean", "package", "-DskipTests=%s".formatted(skipTests)))
+  public Container build(Directory source, @Default("false") boolean skipTests) {
+    return buildEnv(source)
+        .withExec(List.of("mvn", "clean", "test", "-DskipTests=%s".formatted(skipTests)));
+  }
+
+  /** Package the application into a container */
+  @Function
+  public Container pack(Directory source) {
+    File jar = build(source, true)
         .directory("./target")
         .file("echo-server-1.0-SNAPSHOT.jar");
     return dag.container().from("eclipse-temurin:17")
