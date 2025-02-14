@@ -1,6 +1,15 @@
 {
   "name": "ci",
-  "engineVersion": "v0.15.3",
-  "sdk": "github.com/dagger/dagger/sdk/java",
+  "engineVersion": "v0.15.4",
+  "sdk": {
+    "source": "github.com/dagger/dagger/sdk/java"
+  },
+  "dependencies": [
+    {
+      "name": "git-info",
+      "source": "github.com/vbehar/daggerverse/git-info@v0.12.0",
+      "pin": "3455f9156ec289c76002547243ec2dc6330d30a2"
+    }
+  ],
   "source": "ci"
 }

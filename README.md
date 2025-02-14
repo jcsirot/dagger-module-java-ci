@@ -28,7 +28,7 @@ $ dagger call build --source=.
 ### Run the service on your local workstation
 
 ```bash
-$ dagger call dev --source=. up
+$ dagger call dev --source=. up --ports 8080:8080
 ...
 $ curl http://localhost:8080/hello-world/
 Echo: /hello-world/

@@ -15,5 +15,5 @@ jobs:
         with:
           version: "latest"
           verb: call
-          args: build --source=.
+          args: build stdout
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
